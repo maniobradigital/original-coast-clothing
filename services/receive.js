@@ -11,6 +11,7 @@
 "use strict";
 
 const Curation = require("./curation"),
+  Categories = require("./categories"),
   Order = require("./order"),
   Response = require("./response"),
   Care = require("./care"),
@@ -26,7 +27,7 @@ module.exports = class Receive {
 
   // Check if the event is a message or postback and
   // call the appropriate handler function
-  handleMessage() {
+  async handleMessage() {
     let event = this.webhookEvent;
 
     let responses;
@@ -36,16 +37,16 @@ module.exports = class Receive {
         let message = event.message;
 
         if (message.quick_reply) {
-          responses = this.handleQuickReply();
+          responses = await this.handleQuickReply();
         } else if (message.attachments) {
           responses = this.handleAttachmentMessage();
         } else if (message.text) {
           responses = this.handleTextMessage();
         }
       } else if (event.postback) {
-        responses = this.handlePostback();
+        responses = await this.handlePostback();
       } else if (event.referral) {
-        responses = this.handleReferral();
+        responses = await this.handleReferral();
       }
     } catch (error) {
       console.error(error);
@@ -102,6 +103,10 @@ module.exports = class Receive {
         Response.genText(i18n.__("get_started.guidance")),
         Response.genQuickReply(i18n.__("get_started.help"), [
           {
+            title: i18n.__("menu.categories"),
+            payload: "CATEGORIES"
+          },
+          {
             title: i18n.__("menu.suggestion"),
             payload: "CURATION"
           },
@@ -139,15 +144,15 @@ module.exports = class Receive {
   }
 
   // Handles mesage events with quick replies
-  handleQuickReply() {
+  async handleQuickReply() {
     // Get the payload of the quick reply
     let payload = this.webhookEvent.message.quick_reply.payload;
 
-    return this.handlePayload(payload);
+    return await this.handlePayload(payload);
   }
 
   // Handles postbacks events
-  handlePostback() {
+  async handlePostback() {
     let postback = this.webhookEvent.postback;
     // Check for the special Get Starded with referral
     let payload;
@@ -157,18 +162,18 @@ module.exports = class Receive {
       // Get the payload of the postback
       payload = postback.payload;
     }
-    return this.handlePayload(payload.toUpperCase());
+    return await this.handlePayload(payload.toUpperCase());
   }
 
   // Handles referral events
-  handleReferral() {
+  async handleReferral() {
     // Get the payload of the postback
     let payload = this.webhookEvent.referral.ref.toUpperCase();
 
-    return this.handlePayload(payload);
+    return await this.handlePayload(payload);
   }
 
-  handlePayload(payload) {
+  async handlePayload(payload) {
     console.log("Received Payload:", `${payload} for ${this.user.psid}`);
 
     // Log CTA event in FBA
@@ -186,6 +191,9 @@ module.exports = class Receive {
     } else if (payload.includes("CURATION") || payload.includes("COUPON")) {
       let curation = new Curation(this.user, this.webhookEvent);
       response = curation.handlePayload(payload);
+    } else if (payload.includes("CATEGORIES")) {
+      let categories = new Categories(this.user, this.webhookEvent);
+      response = await categories.handlePayload(payload);
     } else if (payload.includes("CARE")) {
       let care = new Care(this.user, this.webhookEvent);
       response = care.handlePayload(payload);
@@ -230,6 +238,10 @@ module.exports = class Receive {
       i18n.__("get_started.help");
 
     let response = Response.genQuickReply(welcomeMessage, [
+      {
+        title: i18n.__("menu.categories"),
+        payload: "CATEGORIES"
+      },
       {
         title: i18n.__("menu.suggestion"),
         payload: "CURATION"
